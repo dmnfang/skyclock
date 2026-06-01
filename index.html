@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sky Clock</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --transition: 2.5s ease;
+  --tb-h: 52px;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+}
+
+/* ── SKY LAYERS ── */
+#sky {
+  position: fixed; inset: 0; z-index: 0;
+  transition: background var(--transition);
+}
+
+#sky-sun {
+  position: fixed; border-radius: 50%;
+  transition: all var(--transition); z-index: 1;
+  filter: blur(2px);
+}
+
+#sky-moon {
+  position: fixed; border-radius: 50%;
+  transition: all var(--transition); z-index: 1;
+}
+
+#stars-canvas {
+  position: fixed; inset: 0; z-index: 1;
+  pointer-events: none;
+  transition: opacity 1.5s ease;
+}
+
+#clouds-layer {
+  position: fixed; inset: 0; z-index: 2;
+  pointer-events: none; overflow: hidden;
+}
+
+.cloud {
+  position: absolute; border-radius: 50px;
+  filter: blur(8px);
+  transition: opacity var(--transition), background var(--transition);
+}
+
+#horizon-glow {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 35%; z-index: 2; pointer-events: none;
+  transition: all var(--transition);
+}
+
+/* ── TOPBAR ── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--tb-h); z-index: 20;
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 12px;
+}
+
+.tb-breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.bc-home {
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px; font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.bc-home:hover { color: rgba(255,255,255,0.8); }
+
+.bc-sep {
+  font-size: 13px; color: rgba(255,255,255,0.25);
+}
+
+.bc-current {
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px; font-weight: 700;
+  color: rgba(255,255,255,0.65);
+}
+
+.tb-spacer { flex: 1; }
+
+.tb-right {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.ctrl-btn {
+  border: none; border-radius: 100px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
+  padding: 8px 20px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── CLOCK STAGE ── */
+#stage {
+  position: fixed;
+  top: var(--tb-h); left: 0; right: 0; bottom: 0;
+  z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── ANALOG CLOCK ── */
+#analog-wrap {
+  width: min(70vh, 70vw);
+  height: min(70vh, 70vw);
+  display: flex; align-items: center; justify-content: center;
+}
+
+#analog-face {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 1.5s ease, box-shadow 1.5s ease;
+}
+
+#analog-face svg {
+  width: 100%; height: 100%;
+  position: absolute; top: 0; left: 0;
+  overflow: visible;
+}
+
+/* ── DIGITAL CLOCK ── */
+#digital-wrap {
+  display: none;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+}
+
+#digital-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 48px 72px;
+  border-radius: 32px;
+  transition: background 1.5s ease, box-shadow 1.5s ease;
+}
+
+.digit-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: ns-resize;
+}
+
+.digit-val {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(140px, 24vw, 260px);
+  font-weight: 900;
+  line-height: 1;
+  transition: color 1.5s ease;
+  min-width: 2ch;
+  text-align: center;
+}
+
+.digit-sep {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(110px, 18vw, 200px);
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.6;
+  transition: color 1.5s ease;
+  align-self: center;
+  margin: 0 16px;
+}
+
+#ampm { display: none; }
+
+/* ── TIME LABEL ── */
+#time-label {
+  position: fixed;
+  top: calc(var(--tb-h) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(20px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  transition: color 1.5s ease;
+  z-index: 11;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<div id="sky"></div>
+<div id="sky-sun"></div>
+<div id="sky-moon"></div>
+<canvas id="stars-canvas"></canvas>
+<div id="clouds-layer"></div>
+<div id="horizon-glow"></div>
+<div id="ground"></div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="tb-breadcrumb">
+    <a class="bc-home" href="https://hiroba.ca">Hiroba</a>
+    <span class="bc-sep">›</span>
+    <span class="bc-current">Sky Clock</span>
+  </div>
+  <div class="tb-spacer"></div>
+  <div class="tb-right">
+    <button class="ctrl-btn" id="toggle-btn">
+      <span class="toggle-icon">🔢</span>
+      <span id="toggle-label">Digital</span>
+    </button>
+    <button class="ctrl-btn" id="random-btn">✦ Random</button>
+  </div>
+</div>
+
+<!-- TIME LABEL -->
+<div id="time-label">PM</div>
+
+<!-- CLOCK STAGE -->
+<div id="stage">
+  <div id="analog-wrap">
+    <div id="analog-face">
+      <svg id="clock-svg" viewBox="0 0 340 340"></svg>
+    </div>
+  </div>
+
+  <div id="digital-wrap">
+    <div id="digital-display">
+      <div class="digit-group" id="dg-hour">
+        <div class="digit-val" id="dv-hour">12</div>
+      </div>
+      <div class="digit-sep" id="sep">:</div>
+      <div class="digit-group" id="dg-min">
+        <div class="digit-val" id="dv-min">00</div>
+      </div>
+      <div id="ampm">AM</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let totalMinutes = 12 * 60;
+let isAnalog = true;
+let analogDragging = false;
+let analogCenter = { x: 0, y: 0 };
+
+const skyStates = [
+  { sky: ['#07070f','#0a0d1e'], sun: 0, sunY: 115, moon: 1, moonY: 20, moonOpacity: 1, stars: 1, clouds: 0.05, ground: '#080e09', horizonColor: 'transparent', label: '#8899bb', card: 'rgba(255,255,255,0.06)', text: '#c8d8f4' },
+  { sky: ['#06060d','#09091a'], sun: 0, sunY: 115, moon: 1, moonY: 25, moonOpacity: 1, stars: 1, clouds: 0.05, ground: '#07090a', horizonColor: 'transparent', label: '#7788aa', card: 'rgba(255,255,255,0.06)', text: '#bccde8' },
+  { sky: ['#05050c','#080818'], sun: 0, sunY: 115, moon: 1, moonY: 30, moonOpacity: 0.95, stars: 1, clouds: 0.08, ground: '#060808', horizonColor: 'transparent', label: '#7788aa', card: 'rgba(255,255,255,0.06)', text: '#bccde8' },
+  { sky: ['#080d1e','#0e1232'], sun: 0, sunY: 110, moon: 1, moonY: 22, moonOpacity: 0.9, stars: 0.95, clouds: 0.08, ground: '#090e10', horizonColor: 'rgba(20,30,60,0.4)', label: '#8899bb', card: 'rgba(255,255,255,0.06)', text: '#c0d0ec' },
+  { sky: ['#0e1a3a','#1e2d5a'], sun: 0, sunY: 108, moon: 0.8, moonY: 40, moonOpacity: 0.65, stars: 0.65, clouds: 0.1, ground: '#101820', horizonColor: 'rgba(160,80,60,0.28)', label: '#99aacc', card: 'rgba(255,255,255,0.07)', text: '#c8d4ee' },
+  { sky: ['#162450','#2a3870'], sun: 0, sunY: 105, moon: 0.4, moonY: 55, moonOpacity: 0.4, stars: 0.35, clouds: 0.15, ground: '#141e22', horizonColor: 'rgba(200,100,50,0.38)', label: '#cc9988', card: 'rgba(255,255,255,0.08)', text: '#f0d8cc' },
+  { sky: ['#2a1560','#e06040'], sun: 0.6, sunY: 88, moon: 0.1, moonY: 65, moonOpacity: 0.2, stars: 0.05, clouds: 0.25, ground: '#1e2c1f', horizonColor: 'rgba(240,130,50,0.5)', label: '#ee8855', card: 'rgba(255,240,230,0.12)', text: '#fff0e0' },
+  { sky: ['#4080c8','#f8a050'], sun: 0.9, sunY: 72, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.35, ground: '#2a3d2b', horizonColor: 'rgba(255,180,60,0.4)', label: '#ff9940', card: 'rgba(255,245,230,0.15)', text: '#fff5e0' },
+  { sky: ['#5090d8','#90c8f0'], sun: 1, sunY: 55, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.4, ground: '#2e4430', horizonColor: 'rgba(200,230,255,0.3)', label: '#e8a020', card: 'rgba(255,255,240,0.15)', text: '#fff8e0' },
+  { sky: ['#60a0e0','#a8d8f8'], sun: 1, sunY: 35, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.45, ground: '#304832', horizonColor: 'rgba(210,235,255,0.2)', label: '#c07010', card: 'rgba(255,255,235,0.15)', text: '#fff5d0' },
+  { sky: ['#65a8e8','#b0dcfc'], sun: 1, sunY: 18, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.4, ground: '#2e4630', horizonColor: 'rgba(220,240,255,0.15)', label: '#a05808', card: 'rgba(255,255,230,0.14)', text: '#fff2c8' },
+  { sky: ['#60a8f0','#b8e0ff'], sun: 1, sunY: 8, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.35, ground: '#2c4430', horizonColor: 'rgba(230,245,255,0.1)', label: '#8a4800', card: 'rgba(255,255,225,0.13)', text: '#ffeed8' },
+  { sky: ['#55a5f5','#bee2ff'], sun: 1, sunY: 4, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.3, ground: '#2c4430', horizonColor: 'rgba(240,250,255,0.08)', label: '#7a3800', card: 'rgba(255,255,220,0.13)', text: '#ffedd5' },
+  { sky: ['#58a6f5','#bcdfff'], sun: 1, sunY: 8, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.3, ground: '#2e4532', horizonColor: 'rgba(235,248,255,0.1)', label: '#7a3800', card: 'rgba(255,255,220,0.13)', text: '#ffeed5' },
+  { sky: ['#60a5ee','#baddff'], sun: 1, sunY: 16, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.32, ground: '#2d4430', horizonColor: 'rgba(230,245,255,0.12)', label: '#7e3a00', card: 'rgba(255,255,222,0.13)', text: '#ffeed8' },
+  { sky: ['#65a0e8','#b5d8f5'], sun: 1, sunY: 28, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.35, ground: '#2c4230', horizonColor: 'rgba(225,240,255,0.15)', label: '#844000', card: 'rgba(255,252,220,0.13)', text: '#ffedd5' },
+  { sky: ['#6898dc','#aaccee'], sun: 1, sunY: 42, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.38, ground: '#2b4030', horizonColor: 'rgba(255,210,140,0.2)', label: '#8a4800', card: 'rgba(255,248,218,0.14)', text: '#ffeacc' },
+  { sky: ['#5070b8','#e8902a'], sun: 0.9, sunY: 60, moon: 0, moonY: 70, moonOpacity: 0, stars: 0, clouds: 0.42, ground: '#253828', horizonColor: 'rgba(255,170,60,0.4)', label: '#dd6600', card: 'rgba(255,240,210,0.15)', text: '#ffe5c0' },
+  { sky: ['#3050a0','#f06030'], sun: 0.7, sunY: 78, moon: 0.1, moonY: 10, moonOpacity: 0.15, stars: 0.05, clouds: 0.35, ground: '#1e2e20', horizonColor: 'rgba(240,120,40,0.5)', label: '#ee5500', card: 'rgba(255,230,200,0.14)', text: '#ffe0b0' },
+  { sky: ['#1a2870','#d04020'], sun: 0.3, sunY: 95, moon: 0.5, moonY: 18, moonOpacity: 0.5, stars: 0.2, clouds: 0.2, ground: '#162018', horizonColor: 'rgba(200,80,30,0.4)', label: '#cc6644', card: 'rgba(255,220,200,0.1)', text: '#ffd8c0' },
+  { sky: ['#100d40','#802820'], sun: 0, sunY: 108, moon: 0.8, moonY: 22, moonOpacity: 0.75, stars: 0.5, clouds: 0.1, ground: '#101814', horizonColor: 'rgba(120,40,15,0.3)', label: '#cc8866', card: 'rgba(255,210,190,0.09)', text: '#ffd0b8' },
+  { sky: ['#0c0a30','#3a1560'], sun: 0, sunY: 112, moon: 1, moonY: 28, moonOpacity: 0.9, stars: 0.7, clouds: 0.08, ground: '#0d1510', horizonColor: 'rgba(60,15,5,0.2)', label: '#9988cc', card: 'rgba(255,255,255,0.07)', text: '#d0c8f4' },
+  { sky: ['#08071e','#180e38'], sun: 0, sunY: 115, moon: 1, moonY: 32, moonOpacity: 0.95, stars: 0.9, clouds: 0.06, ground: '#0a1310', horizonColor: 'transparent', label: '#8877bb', card: 'rgba(255,255,255,0.06)', text: '#c8c0ee' },
+  { sky: ['#070618','#0f0c28'], sun: 0, sunY: 115, moon: 1, moonY: 22, moonOpacity: 1, stars: 1, clouds: 0.05, ground: '#090e0b', horizonColor: 'transparent', label: '#7766aa', card: 'rgba(255,255,255,0.06)', text: '#c0b8e8' },
+];
+
+function getSkyState(mins) {
+  const m = ((mins % 1440) + 1440) % 1440;
+  const step = 1440 / (skyStates.length - 1);
+  const idx = m / step;
+  const lo = Math.floor(idx) % skyStates.length;
+  const hi = Math.ceil(idx) % skyStates.length;
+  const t = idx - Math.floor(idx);
+  return lerpSky(skyStates[lo], skyStates[hi >= skyStates.length ? 0 : hi], t);
+}
+
+function lerpSky(a, b, t) {
+  return {
+    sky: [lerpHex(a.sky[0], b.sky[0], t), lerpHex(a.sky[1], b.sky[1], t)],
+    sun: lerp(a.sun, b.sun, t), sunY: lerp(a.sunY, b.sunY, t),
+    moon: lerp(a.moon, b.moon, t), moonY: lerp(a.moonY, b.moonY, t),
+    moonOpacity: lerp(a.moonOpacity, b.moonOpacity, t),
+    stars: lerp(a.stars, b.stars, t), clouds: lerp(a.clouds, b.clouds, t),
+    ground: lerpHex(a.ground, b.ground, t),
+    horizonColor: t < 0.5 ? a.horizonColor : b.horizonColor,
+    label: lerpHex(a.label, b.label, t),
+    card: a.card, text: lerpHex(a.text, b.text, t),
+  };
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpHex(a, b, t) {
+  const pa = parseHex(a), pb = parseHex(b);
+  if (!pa || !pb) return a;
+  return `rgb(${Math.round(lerp(pa[0],pb[0],t))},${Math.round(lerp(pa[1],pb[1],t))},${Math.round(lerp(pa[2],pb[2],t))})`;
+}
+function parseHex(h) {
+  if (!h || !h.startsWith('#')) return null;
+  const v = parseInt(h.slice(1), 16);
+  return [(v>>16)&255, (v>>8)&255, v&255];
+}
+
+const starsCanvas = document.getElementById('stars-canvas');
+const starsCtx = starsCanvas.getContext('2d');
+let stars = [];
+
+function initStars() {
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  stars = Array.from({length: 220}, () => ({
+    x: Math.random() * starsCanvas.width,
+    y: Math.random() * starsCanvas.height * 0.7,
+    r: Math.random() * 1.5 + 0.3,
+    t: Math.random() * Math.PI * 2,
+    speed: Math.random() * 0.02 + 0.005,
+    bright: Math.random() * 0.5 + 0.5,
+  }));
+}
+
+function drawStars(opacity) {
+  starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+  if (opacity < 0.01) { starsCanvas.style.opacity = 0; return; }
+  starsCanvas.style.opacity = 1;
+  stars.forEach(s => {
+    const twinkle = 0.6 + 0.4 * Math.sin(s.t);
+    starsCtx.beginPath();
+    starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    starsCtx.fillStyle = `rgba(255,255,240,${opacity * twinkle * s.bright})`;
+    starsCtx.fill();
+    s.t += s.speed;
+  });
+}
+
+const clouds = [];
+function initClouds() {
+  const layer = document.getElementById('clouds-layer');
+  layer.innerHTML = '';
+  const heights = [8,15,22,30,12,18,8,25,14,20];
+  const lefts   = [5,20,42,60,75,88,10,50,30,68];
+  const widths  = [180,260,120,310,200,150,240,190,280,130];
+  const heights2 = [30,20,40,22,35,28,25,38,18,32];
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('div');
+    el.className = 'cloud';
+    el.style.cssText = `top:${heights[i]}%;left:${lefts[i]}%;width:${widths[i]}px;height:${heights2[i]}px;`;
+    layer.appendChild(el);
+    clouds.push(el);
+  }
+}
+
+function applySky(s) {
+  document.getElementById('sky').style.background = `linear-gradient(to bottom, ${s.sky[0]}, ${s.sky[1]})`;
+
+  const sun = document.getElementById('sky-sun');
+  const sunSize = Math.round(lerp(0, 90, s.sun));
+  const sunX = window.innerWidth / 2 - sunSize / 2;
+  const sunY = window.innerHeight * (s.sunY / 100) - sunSize / 2;
+  if (s.sun > 0.02) {
+    sun.style.cssText = `width:${sunSize}px;height:${sunSize}px;left:${sunX}px;top:${sunY}px;opacity:${s.sun};background:radial-gradient(circle, #fff8e0 0%, #ffd060 40%, rgba(255,160,40,0) 100%);box-shadow:0 0 ${sunSize*1.5}px ${sunSize}px rgba(255,200,80,0.35);`;
+  } else { sun.style.opacity = 0; }
+
+  const moon = document.getElementById('sky-moon');
+  const moonSize = 44;
+  const moonX = window.innerWidth * 0.72 - moonSize / 2;
+  const moonY = window.innerHeight * (s.moonY / 100) - moonSize / 2;
+  if (s.moonOpacity > 0.05) {
+    moon.style.cssText = `width:${moonSize}px;height:${moonSize}px;left:${moonX}px;top:${moonY}px;opacity:${s.moonOpacity};background:radial-gradient(circle at 38% 38%, #fff8e0, #d0c8a0);box-shadow:0 0 18px 6px rgba(240,240,200,0.25);`;
+  } else { moon.style.opacity = 0; }
+
+  drawStars(s.stars);
+
+  const isNight = s.stars > 0.5;
+  clouds.forEach((c, i) => {
+    c.style.opacity = s.clouds * (0.6 + 0.4 * Math.sin(i * 1.3));
+    c.style.background = isNight ? 'rgba(120,130,160,0.5)' : 'rgba(255,255,255,0.75)';
+  });
+
+  const hg = document.getElementById('horizon-glow');
+  hg.style.background = s.horizonColor && s.horizonColor !== 'transparent'
+    ? `linear-gradient(to top, ${s.horizonColor}, transparent)` : 'none';
+
+  document.getElementById('ground').style.background = s.ground;
+
+  const cardBg = isAnalog
+    ? (s.stars > 0.3 ? 'rgba(235,240,255,0.88)' : 'rgba(255,253,240,0.88)')
+    : (s.stars > 0.3 ? 'rgba(18,20,38,0.82)' : 'rgba(255,253,240,0.88)');
+  const shadow = `0 24px 80px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2)`;
+
+  if (isAnalog) {
+    const face = document.getElementById('analog-face');
+    face.style.background = cardBg;
+    face.style.boxShadow = shadow;
+    face.style.border = `3px solid rgba(255,255,255,0.3)`;
+    drawAnalogClock(s.stars > 0.3);
+  } else {
+    const disp = document.getElementById('digital-display');
+    disp.style.background = cardBg;
+    disp.style.boxShadow = shadow;
+    disp.style.border = `2px solid rgba(255,255,255,0.2)`;
+    const textC = s.stars > 0.3 ? '#c8d8f4' : '#2a1a08';
+    document.getElementById('dv-hour').style.color = textC;
+    document.getElementById('dv-min').style.color = textC;
+    document.getElementById('sep').style.color = textC;
+  }
+
+  document.getElementById('time-label').style.color = s.text;
+
+  const isNightBtn = s.stars > 0.3;
+  const btnBg = isNightBtn ? 'rgba(200,215,255,0.15)' : 'rgba(255,255,255,0.3)';
+  const btnColor = isNightBtn ? '#c8d8f4' : '#2a1a08';
+  const btnBorder = isNightBtn ? '1px solid rgba(200,215,255,0.2)' : '1px solid rgba(255,255,255,0.5)';
+  document.querySelectorAll('.ctrl-btn').forEach(b => {
+    b.style.background = btnBg;
+    b.style.color = btnColor;
+    b.style.border = btnBorder;
+    b.style.backdropFilter = 'blur(12px)';
+  });
+}
+
+function drawAnalogClock(darkMode = false) {
+  const svg = document.getElementById('clock-svg');
+  const cx = 170, cy = 170, r = 155;
+  const h = totalMinutes / 60;
+  const hAngle = (h / 12) * 360 - 90;
+  const mAngle = ((totalMinutes % 60) / 60) * 360 - 90;
+
+  const faceColor = darkMode ? 'rgba(235,240,255,0.92)' : 'rgba(255,253,240,0.92)';
+  const rimColor = darkMode ? 'rgba(160,180,220,0.6)' : 'rgba(160,130,80,0.5)';
+  const tickColor = darkMode ? '#4a5880' : '#5a4020';
+  const hourHandColor = darkMode ? '#1a2040' : '#1a1008';
+  const minHandColor = darkMode ? '#2a3560' : '#2a1a10';
+  const numColor = darkMode ? '#2a3560' : '#3a2210';
+
+  let svgContent = `
+    <defs>
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="rgba(0,0,0,0.32)"/>
+      </filter>
+      <radialGradient id="faceGrad" cx="45%" cy="35%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+        <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+      </radialGradient>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${faceColor}" filter="url(#shadow)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#faceGrad)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${rimColor}" stroke-width="3"/>
+  `;
+
+  const hours12 = [12,1,2,3,4,5,6,7,8,9,10,11];
+  hours12.forEach((num, i) => {
+    const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
+    const nx = cx + Math.cos(angle) * 128;
+    const ny = cy + Math.sin(angle) * 128;
+    svgContent += `<text x="${nx}" y="${ny}" text-anchor="middle" dominant-baseline="central" font-family="Playfair Display, serif" font-size="20" font-weight="700" fill="${numColor}" opacity="0.85">${num}</text>`;
+  });
+
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
+    const isHour = i % 5 === 0;
+    const inner = isHour ? 138 : 147;
+    const x1 = cx + Math.cos(angle) * inner;
+    const y1 = cy + Math.sin(angle) * inner;
+    const x2 = cx + Math.cos(angle) * 155;
+    const y2 = cy + Math.sin(angle) * 155;
+    svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${tickColor}" stroke-width="${isHour ? 4 : 1.5}" stroke-linecap="round" opacity="${isHour ? 0.9 : 0.4}"/>`;
+  }
+
+  const hRad = hAngle * Math.PI / 180;
+  svgContent += handPath(cx, cy, hRad, 90, 26, 12, hourHandColor);
+  const mRad = mAngle * Math.PI / 180;
+  svgContent += handPath(cx, cy, mRad, 128, 18, 6, minHandColor);
+
+  svgContent += `<circle cx="${cx}" cy="${cy}" r="20" fill="${hourHandColor}" filter="url(#shadow)"/>`;
+  svgContent += `<circle cx="${cx}" cy="${cy}" r="9" fill="${darkMode ? '#a0b0d8' : '#d4a84b'}"/>`;
+  svgContent += `<circle cx="${cx}" cy="${cy}" r="4" fill="${hourHandColor}"/>`;
+
+  svg.innerHTML = svgContent;
+  setupAnalogDrag();
+}
+
+function handPath(cx, cy, angle, length, baseWidth, tipWidth, color) {
+  const tipX = cx + Math.cos(angle) * length;
+  const tipY = cy + Math.sin(angle) * length;
+  const tailX = cx - Math.cos(angle) * 22;
+  const tailY = cy - Math.sin(angle) * 22;
+  const bpX = -Math.sin(angle) * (baseWidth / 2);
+  const bpY =  Math.cos(angle) * (baseWidth / 2);
+  const tpX = -Math.sin(angle) * (tipWidth / 2);
+  const tpY =  Math.cos(angle) * (tipWidth / 2);
+  return `<path d="M${tailX + bpX},${tailY + bpY} L${tipX + tpX},${tipY + tpY} L${tipX - tpX},${tipY - tpY} L${tailX - bpX},${tailY - bpY} Z" fill="${color}" opacity="0.95" filter="url(#shadow)" stroke="${color}" stroke-width="1" stroke-linejoin="round"/>`;
+}
+
+function updateAll() {
+  const mNorm = ((totalMinutes % 1440) + 1440) % 1440;
+  const hDisplay = Math.floor(mNorm / 60) % 12 || 12;
+  const mDisplay = mNorm % 60;
+  const ampm = mNorm < 12 * 60 ? 'AM' : 'PM';
+
+  document.getElementById('dv-hour').textContent = String(hDisplay).padStart(2, '0');
+  document.getElementById('dv-min').textContent = String(mDisplay).padStart(2, '0');
+  document.getElementById('time-label').textContent = ampm;
+
+  const s = getSkyState(mNorm);
+  applySky(s);
+  if (isAnalog) drawAnalogClock(s.stars > 0.3);
+}
+
+function setupAnalogDrag() {
+  const svg = document.getElementById('clock-svg');
+  const face = document.getElementById('analog-face');
+  const rect = face.getBoundingClientRect();
+  analogCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  svg.onmousedown = svg.ontouchstart = (e) => { analogDragging = true; e.preventDefault(); };
+}
+
+function getAnalogAngle(e) {
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return Math.atan2(clientY - analogCenter.y, clientX - analogCenter.x) * 180 / Math.PI + 90;
+}
+
+let lastAnalogAngle = null;
+let accumulatedDelta = 0;
+
+document.addEventListener('mousemove', (e) => {
+  if (!analogDragging) return;
+  const angle = getAnalogAngle(e);
+  if (lastAnalogAngle !== null) {
+    let delta = angle - lastAnalogAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    accumulatedDelta += delta;
+    const steps = Math.floor(Math.abs(accumulatedDelta) / 6) * Math.sign(accumulatedDelta);
+    if (steps !== 0) { totalMinutes += steps * 5; accumulatedDelta -= steps * 6; updateAll(); }
+  }
+  lastAnalogAngle = angle;
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (!analogDragging) return;
+  e.preventDefault();
+  const angle = getAnalogAngle(e);
+  if (lastAnalogAngle !== null) {
+    let delta = angle - lastAnalogAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    accumulatedDelta += delta;
+    const steps = Math.floor(Math.abs(accumulatedDelta) / 6) * Math.sign(accumulatedDelta);
+    if (steps !== 0) { totalMinutes += steps * 5; accumulatedDelta -= steps * 6; updateAll(); }
+  }
+  lastAnalogAngle = angle;
+}, { passive: false });
+
+document.addEventListener('mouseup', () => { analogDragging = false; lastAnalogAngle = null; accumulatedDelta = 0; });
+document.addEventListener('touchend', () => { analogDragging = false; lastAnalogAngle = null; accumulatedDelta = 0; });
+
+function setupDigitalDrag(groupId, field) {
+  const el = document.getElementById(groupId);
+  let startY = 0, startMins = 0;
+
+  const onStart = (e) => {
+    e.preventDefault();
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    startMins = totalMinutes;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+  };
+
+  const onMove = (e) => {
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy = startY - clientY;
+    const stepPx = 8;
+    const minsPerStep = field === 'hour' ? 60 : 5;
+    const steps = Math.round(dy / stepPx);
+    totalMinutes = Math.round((startMins + steps * minsPerStep) / 5) * 5;
+    updateAll();
+  };
+
+  const onEnd = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchend', onEnd);
+  };
+
+  el.addEventListener('mousedown', onStart);
+  el.addEventListener('touchstart', onStart, { passive: false });
+}
+
+document.getElementById('toggle-btn').addEventListener('click', () => {
+  isAnalog = !isAnalog;
+  document.getElementById('analog-wrap').style.display = isAnalog ? 'flex' : 'none';
+  document.getElementById('digital-wrap').style.display = isAnalog ? 'none' : 'flex';
+  document.getElementById('toggle-label').textContent = isAnalog ? 'Digital' : 'Analog';
+  document.querySelector('.toggle-icon').textContent = isAnalog ? '🔢' : '🕐';
+  updateAll();
+});
+
+document.getElementById('random-btn').addEventListener('click', () => {
+  totalMinutes = Math.floor(Math.random() * 288) * 5;
+  updateAll();
+  const btn = document.getElementById('random-btn');
+  btn.style.transform = 'scale(0.9) rotate(-3deg)';
+  setTimeout(() => btn.style.transform = '', 200);
+});
+
+function starLoop() {
+  const mNorm = ((totalMinutes % 1440) + 1440) % 1440;
+  const s = getSkyState(mNorm);
+  if (s.stars > 0.01) drawStars(s.stars);
+  requestAnimationFrame(starLoop);
+}
+
+initStars();
+initClouds();
+setupDigitalDrag('dg-hour', 'hour');
+setupDigitalDrag('dg-min', 'min');
+
+window.addEventListener('resize', () => {
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  initStars();
+  const face = document.getElementById('analog-face');
+  if (face) {
+    const rect = face.getBoundingClientRect();
+    analogCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+});
+
+updateAll();
+starLoop();
+</script>
+</body>
+</html>
